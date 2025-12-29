@@ -1,6 +1,6 @@
 # E-Commerce Microservices Application
 
-A complete microservices-based e-commerce application deployed on AWS with K3s, CI/CD, monitoring, and infrastructure as code.
+A complete microservices-based e-commerce application deployed on AWS with K3s, monitoring (Prometheus/Grafana), and Infrastructure as Code (Terraform).
 
 ## 🏗️ Architecture
 
@@ -10,15 +10,15 @@ A complete microservices-based e-commerce application deployed on AWS with K3s, 
 │  ┌─────────────────────────────────────────────────────────────────┐ │
 │  │                         VPC (10.0.0.0/16)                        │ │
 │  │  ┌─────────────────────────────────────────────────────────────┐│ │
-│  │  │                   K3s Cluster (EC2)                          ││ │
+│  │  │                   K3s Cluster (3 EC2 nodes)                  ││ │
 │  │  │  ┌──────────┐  ┌────────────────┐  ┌─────────────────┐      ││ │
 │  │  │  │ Frontend │  │ Product Service│  │  Order Service  │      ││ │
 │  │  │  │ (React)  │──│   (Node.js)    │──│   (Node.js)     │      ││ │
-│  │  │  │ :30080   │  │     :3001      │  │     :3002       │      ││ │
+│  │  │  │   :80    │  │     :3001      │  │     :3002       │      ││ │
 │  │  │  └──────────┘  └────────────────┘  └─────────────────┘      ││ │
 │  │  │        │               │                   │                 ││ │
 │  │  │  ┌─────────────────────────────────────────────────────────┐││ │
-│  │  │  │     Prometheus  │  Grafana  │  Jenkins  │  CloudWatch   │││ │
+│  │  │  │     Prometheus      │      Grafana      │    Jenkins    │││ │
 │  │  │  └─────────────────────────────────────────────────────────┘││ │
 │  │  └─────────────────────────────────────────────────────────────┘│ │
 │  │                              │                                   │ │
@@ -30,19 +30,31 @@ A complete microservices-based e-commerce application deployed on AWS with K3s, 
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
+## 🛠️ Tech Stack
+
+| Component            | Technology                     |
+| -------------------- | ------------------------------ |
+| **Infrastructure**   | Terraform, AWS (EC2, VPC, RDS) |
+| **Kubernetes**       | K3s (lightweight K8s)          |
+| **Frontend**         | React 18, Nginx                |
+| **Backend**          | Node.js 18, Express            |
+| **Database**         | MySQL 8.0 (AWS RDS)            |
+| **Monitoring**       | Prometheus, Grafana            |
+| **CI/CD**            | Jenkins                        |
+| **Containerization** | Docker, Docker Hub             |
+
 ## 📁 Project Structure
 
 ```
 Microservices-aws-application/
 ├── terraform/                    # Infrastructure as Code
-│   ├── main.tf                  # Main Terraform configuration
+│   ├── main.tf                  # Provider configuration
 │   ├── variables.tf             # Variable definitions
 │   ├── outputs.tf               # Output values
 │   ├── vpc.tf                   # VPC, subnets, NAT Gateway
-│   ├── ec2-k3s.tf               # K3s EC2 instances
-│   ├── security-groups.tf       # Security groups
+│   ├── ec2-k3s.tf               # K3s EC2 instances & security groups
+│   ├── security-groups.tf       # RDS security groups
 │   ├── rds.tf                   # RDS MySQL database
-│   ├── scripts/                 # K3s initialization scripts
 │   └── terraform.tfvars.example # Example variables file
 ├── app/
 │   ├── frontend/                # React frontend application
@@ -51,53 +63,44 @@ Microservices-aws-application/
 ├── kubernetes/
 │   ├── namespace.yaml           # Kubernetes namespace
 │   ├── configmap.yaml           # Application configuration
-│   ├── secrets.yaml             # Sensitive data
+│   ├── secrets.yaml             # Database credentials
 │   ├── product-service.yaml     # Product service deployment
 │   ├── order-service.yaml       # Order service deployment
 │   ├── frontend.yaml            # Frontend deployment
 │   ├── jenkins/                 # Jenkins deployment
-│   └── monitoring/              # Prometheus, Grafana, CloudWatch
+│   └── monitoring/              # Prometheus & Grafana
 ├── jenkins/
-│   └── Jenkinsfile              # CI/CD pipeline
-└── scripts/
-    ├── deploy-all.sh            # Full deployment script
-    ├── build-and-push.sh        # Build Docker images
-    └── cleanup.sh               # Resource cleanup
+│   └── Jenkinsfile              # CI/CD pipeline definition
+├── docker-compose.yml           # Local development
+└── README.md
 ```
 
-## 🚀 Quick Start
+## 🚀 Deployment Guide
 
 ### Prerequisites
 
-- AWS CLI configured with credentials
+- AWS Account (or AWS Academy Learner Lab)
+- AWS CLI configured
 - Terraform >= 1.0.0
-- kubectl
-- Docker
-- Docker Hub account
+- Docker & Docker Hub account
 - SSH key pair
 
-### Step 1: Generate SSH Key and K3s Token
+### Step 1: Clone and Configure
 
 ```bash
-# Generate SSH key pair
+git clone https://github.com/CheraHamza/Microservices-aws-application.git
+cd Microservices-aws-application
+
+# Generate SSH key
 ssh-keygen -t rsa -b 4096 -f ~/.ssh/k3s-key
 
-# Generate K3s token
-openssl rand -hex 32
-```
-
-### Step 2: Configure Variables
-
-```bash
+# Configure Terraform variables
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your values:
-# - ssh_public_key: Content of ~/.ssh/k3s-key.pub
-# - k3s_token: The token you generated
-# - db_password: A secure password
+# Edit terraform.tfvars with your values
 ```
 
-### Step 3: Deploy Infrastructure
+### Step 2: Deploy AWS Infrastructure
 
 ```bash
 cd terraform
@@ -106,143 +109,200 @@ terraform plan
 terraform apply
 ```
 
-### Step 4: Wait for K3s Initialization
+This creates:
 
-After Terraform completes, wait 2-3 minutes for K3s to initialize, then:
+- VPC with public/private subnets
+- 3 EC2 instances (1 master, 2 workers)
+- RDS MySQL database
+- Security groups
+
+### Step 3: Install K3s on Master Node
 
 ```bash
-# SSH into the master node
-ssh -i ~/.ssh/k3s-key ec2-user@<master-public-ip>
+# SSH into master
+ssh -i ~/.ssh/k3s-key ec2-user@<MASTER_PUBLIC_IP>
 
-# Verify cluster is ready
+# Install K3s (skip SELinux for Amazon Linux 2)
+curl -sfL https://get.k3s.io | INSTALL_K3S_SKIP_SELINUX_RPM=true sh -s - server \
+    --write-kubeconfig-mode=644 \
+    --disable=traefik \
+    --node-name="k3s-master"
+
+# Setup kubectl
+sudo mkdir -p /home/ec2-user/.kube
+sudo cp /etc/rancher/k3s/k3s.yaml /home/ec2-user/.kube/config
+sudo chown -R ec2-user:ec2-user /home/ec2-user/.kube
+export KUBECONFIG=/home/ec2-user/.kube/config
+echo 'export KUBECONFIG=/home/ec2-user/.kube/config' >> ~/.bashrc
+
+# Get node token for workers
+sudo cat /var/lib/rancher/k3s/server/node-token
+```
+
+### Step 4: Join Worker Nodes
+
+SSH into each worker and run:
+
+```bash
+curl -sfL https://get.k3s.io | INSTALL_K3S_SKIP_SELINUX_RPM=true \
+    K3S_URL=https://<MASTER_PRIVATE_IP>:6443 \
+    K3S_TOKEN="<NODE_TOKEN>" sh -
+```
+
+Verify on master:
+
+```bash
 kubectl get nodes
+# Should show 3 nodes: k3s-master + 2 workers
 ```
 
-### Step 5: Build and Push Docker Images
+### Step 5: Create Database Tables
 
 ```bash
-chmod +x scripts/build-and-push.sh
-./scripts/build-and-push.sh <your-dockerhub-username>
+# On master node, connect to RDS
+mysql -h <RDS_ENDPOINT> -P 3306 -u <DB_USER> -p<DB_PASSWORD> <DB_NAME>
 ```
 
-### Step 6: Deploy Application
+```sql
+CREATE TABLE products (
+    id VARCHAR(36) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    price DECIMAL(10, 2) NOT NULL,
+    stock INT DEFAULT 0,
+    category VARCHAR(100),
+    image_url VARCHAR(500),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 
-SSH into the master node and apply manifests:
+CREATE TABLE orders (
+    id VARCHAR(36) PRIMARY KEY,
+    customer_name VARCHAR(255) NOT NULL,
+    customer_email VARCHAR(255) NOT NULL,
+    shipping_address TEXT,
+    total_amount DECIMAL(10, 2) NOT NULL,
+    status ENUM('pending', 'confirmed', 'shipped', 'delivered', 'cancelled') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE order_items (
+    id VARCHAR(36) PRIMARY KEY,
+    order_id VARCHAR(36) NOT NULL,
+    product_id VARCHAR(36) NOT NULL,
+    quantity INT NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+);
+
+-- Insert sample products
+INSERT INTO products (id, name, description, price, stock, category) VALUES
+('prod-001', 'Wireless Headphones', 'High-quality wireless headphones', 99.99, 50, 'Electronics'),
+('prod-002', 'Smart Watch', 'Fitness tracking smart watch', 199.99, 30, 'Electronics'),
+('prod-003', 'Laptop Stand', 'Ergonomic aluminum laptop stand', 49.99, 100, 'Accessories');
+```
+
+### Step 6: Build and Push Docker Images
 
 ```bash
-# On master node
-kubectl apply -f kubernetes/namespace.yaml
-kubectl apply -f kubernetes/configmap.yaml
-kubectl apply -f kubernetes/secrets.yaml
-kubectl apply -f kubernetes/product-service.yaml
-kubectl apply -f kubernetes/order-service.yaml
-kubectl apply -f kubernetes/frontend.yaml
+# On your local machine
+docker login
+
+docker build -t <DOCKERHUB_USER>/ecommerce-frontend:latest ./app/frontend
+docker build -t <DOCKERHUB_USER>/product-service:latest ./app/product-service
+docker build -t <DOCKERHUB_USER>/order-service:latest ./app/order-service
+
+docker push <DOCKERHUB_USER>/ecommerce-frontend:latest
+docker push <DOCKERHUB_USER>/product-service:latest
+docker push <DOCKERHUB_USER>/order-service:latest
 ```
 
-### Step 7: Access Application
+### Step 7: Update Kubernetes Manifests
+
+Edit `kubernetes/secrets.yaml` with your RDS endpoint:
+
+```yaml
+stringData:
+  DB_HOST: "<RDS_ENDPOINT>"
+  DB_USER: "<DB_USER>"
+  DB_PASSWORD: "<DB_PASSWORD>"
+```
+
+Update image names in `kubernetes/*.yaml` files with your Docker Hub username.
+
+### Step 8: Deploy to Kubernetes
 
 ```bash
-# Frontend: http://<master-public-ip>:30080
-# Grafana:  http://<master-public-ip>:30090 (admin/admin123)
+# Copy manifests to master
+scp -i ~/.ssh/k3s-key -r ./kubernetes ec2-user@<MASTER_IP>:~/
+
+# SSH into master and deploy
+ssh -i ~/.ssh/k3s-key ec2-user@<MASTER_IP>
+
+kubectl create namespace ecommerce
+kubectl create namespace monitoring
+kubectl create namespace jenkins
+
+kubectl apply -f ~/kubernetes/secrets.yaml
+kubectl apply -f ~/kubernetes/configmap.yaml
+kubectl apply -f ~/kubernetes/product-service.yaml
+kubectl apply -f ~/kubernetes/order-service.yaml
+kubectl apply -f ~/kubernetes/frontend.yaml
+kubectl apply -f ~/kubernetes/monitoring/
+kubectl apply -f ~/kubernetes/jenkins/
+
+# Verify
+kubectl get pods --all-namespaces
 ```
 
-## 🔧 Services
+### Step 9: Access the Application
 
-### Frontend (React)
+| Service      | URL                                                |
+| ------------ | -------------------------------------------------- |
+| **Frontend** | http://MASTER_IP                             |
+| **Grafana**  | http://MASTER_IP:NodePort (admin/admin123) |
+| **Jenkins**  | http://MASTER_IP:NodePort                          |
 
-- Port: 80
-- Endpoint: LoadBalancer URL
-- Features: Product listing, cart, checkout, order history
-
-### Product Service (Node.js)
-
-- Port: 3001
-- Endpoints:
-  - `GET /api/products` - List products
-  - `GET /api/products/:id` - Get product
-  - `POST /api/products` - Create product
-  - `PUT /api/products/:id` - Update product
-  - `DELETE /api/products/:id` - Delete product
-  - `GET /health` - Health check
-  - `GET /metrics` - Prometheus metrics
-
-### Order Service (Node.js)
-
-- Port: 3002
-- Endpoints:
-  - `GET /api/orders` - List orders
-  - `GET /api/orders/:id` - Get order
-  - `POST /api/orders` - Create order
-  - `PATCH /api/orders/:id/status` - Update status
-  - `GET /health` - Health check
-  - `GET /metrics` - Prometheus metrics
-
-## 🖥️ Local Development
-
-Use Docker Compose for local development:
+Get NodePorts:
 
 ```bash
-docker-compose up -d
+kubectl get svc --all-namespaces
 ```
 
-Access:
+## 🔧 API Endpoints
 
-- Frontend: http://localhost
-- Product Service: http://localhost:3001
-- Order Service: http://localhost:3002
-- Prometheus: http://localhost:9090
-- Grafana: http://localhost:3000 (admin/admin123)
+### Product Service (Port 3001)
 
-## 📊 Monitoring
+| Endpoint            | Method | Description        |
+| ------------------- | ------ | ------------------ |
+| `/api/products`     | GET    | List all products  |
+| `/api/products/:id` | GET    | Get single product |
+| `/api/products`     | POST   | Create product     |
+| `/health`           | GET    | Health check       |
+| `/metrics`          | GET    | Prometheus metrics |
 
-### Prometheus
+### Order Service (Port 3002)
 
-- Collects metrics from all services
-- Kubernetes service discovery
-- 15-second scrape interval
+| Endpoint          | Method | Description        |
+| ----------------- | ------ | ------------------ |
+| `/api/orders`     | GET    | List all orders    |
+| `/api/orders/:id` | GET    | Get single order   |
+| `/api/orders`     | POST   | Create order       |
+| `/health`         | GET    | Health check       |
+| `/metrics`        | GET    | Prometheus metrics |
 
-### Grafana
+## 📊 Monitoring Setup
 
-- URL: `http://<grafana-lb>:3000`
-- Default credentials: admin/admin123
-- Pre-configured E-Commerce dashboard
+### Grafana Configuration
 
-### CloudWatch
-
-- Container insights enabled
-- Custom metrics namespace: `ECommerce/Microservices`
-- Log aggregation from all pods
-
-## 🔄 CI/CD Pipeline
-
-The Jenkins pipeline includes:
-
-1. **Checkout** - Clone repository
-2. **Build** - Build Docker images (parallel)
-3. **Push** - Push to Docker Hub
-4. **Deploy** - Apply Kubernetes manifests
-5. **Verify** - Check deployment status
-
-### Jenkins Setup
-
-1. Access Jenkins at `http://<jenkins-lb>:8080`
-2. Get initial admin password:
-   ```bash
-   kubectl exec -n jenkins $(kubectl get pods -n jenkins -o name) -- cat /var/jenkins_home/secrets/initialAdminPassword
-   ```
-3. Install suggested plugins
-4. Add credentials:
-   - Docker Hub credentials (ID: `dockerhub-credentials`)
-   - AWS credentials
+1. Go to **Connections** → **Data Sources** → **Add data source**
+2. Select **Prometheus**
+3. URL: `http://prometheus:9090`
+4. Click **Save & Test**
+5. Import dashboard ID: **3662** for Prometheus overview
 
 ## 🧹 Cleanup
-
-```bash
-chmod +x scripts/cleanup.sh
-./scripts/cleanup.sh
-```
-
-Or manually:
 
 ```bash
 # Delete Kubernetes resources
@@ -250,45 +310,15 @@ kubectl delete namespace ecommerce
 kubectl delete namespace monitoring
 kubectl delete namespace jenkins
 
-# Destroy infrastructure
+# Destroy AWS infrastructure
 cd terraform
 terraform destroy
 ```
 
 ## ⚠️ AWS Learner Lab Notes
 
-If using AWS Academy Learner Lab:
-
-1. **IAM Limitations**: EKS is not supported due to IAM restrictions. This project uses K3s on EC2 instead.
-2. **Session Timeout**: Lab sessions expire after 4 hours. Save your SSH key locally.
-3. **Region**: Stick to us-east-1 for best compatibility
-4. **Budget**: Uses minimal instance sizes (t3.medium for K3s nodes)
-5. **Persistence**: RDS data persists across sessions, but you may need to re-deploy K3s
-6. **Security Groups**: May need manual adjustment if Terraform fails
-
-## 📝 API Examples
-
-### Create Product
-
-```bash
-curl -X POST http://<product-service>/api/products \
-  -H "Content-Type: application/json" \
-  -d '{"name": "New Product", "price": 29.99, "stock": 100}'
-```
-
-### Create Order
-
-```bash
-curl -X POST http://<order-service>/api/orders \
-  -H "Content-Type: application/json" \
-  -d '{
-    "customer_name": "John Doe",
-    "customer_email": "john@example.com",
-    "shipping_address": "123 Main St",
-    "items": [{"product_id": "prod-001", "quantity": 2}]
-  }'
-```
-
-## 📄 License
-
-This project is for educational purposes as part of a DevOps mini-project
+- **EKS not available**: IAM restrictions prevent EKS usage. K3s on EC2 is the alternative.
+- **Session timeout**: Labs expire after 4 hours of inactivity
+- **Region**: Use us-east-1 for compatibility
+- **Costs**: Uses t3.medium instances to minimize costs
+- **RDS persistence**: Database persists across sessions
