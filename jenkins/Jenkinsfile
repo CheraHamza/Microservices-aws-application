@@ -1,0 +1,170 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_REGION = 'us-east-1'
+        CLUSTER_NAME = 'ecommerce-cluster'
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
+        DOCKERHUB_USERNAME = "${DOCKERHUB_CREDENTIALS_USR}"
+        IMAGE_TAG = "${BUILD_NUMBER}"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                echo "Checked out branch: ${env.BRANCH_NAME ?: 'main'}"
+            }
+        }
+
+        stage('Build Docker Images') {
+            parallel {
+                stage('Build Frontend') {
+                    steps {
+                        dir('app/frontend') {
+                            script {
+                                sh """
+                                    docker build -t ${DOCKERHUB_USERNAME}/ecommerce-frontend:${IMAGE_TAG} .
+                                    docker tag ${DOCKERHUB_USERNAME}/ecommerce-frontend:${IMAGE_TAG} ${DOCKERHUB_USERNAME}/ecommerce-frontend:latest
+                                """
+                            }
+                        }
+                    }
+                }
+                stage('Build Product Service') {
+                    steps {
+                        dir('app/product-service') {
+                            script {
+                                sh """
+                                    docker build -t ${DOCKERHUB_USERNAME}/product-service:${IMAGE_TAG} .
+                                    docker tag ${DOCKERHUB_USERNAME}/product-service:${IMAGE_TAG} ${DOCKERHUB_USERNAME}/product-service:latest
+                                """
+                            }
+                        }
+                    }
+                }
+                stage('Build Order Service') {
+                    steps {
+                        dir('app/order-service') {
+                            script {
+                                sh """
+                                    docker build -t ${DOCKERHUB_USERNAME}/order-service:${IMAGE_TAG} .
+                                    docker tag ${DOCKERHUB_USERNAME}/order-service:${IMAGE_TAG} ${DOCKERHUB_USERNAME}/order-service:latest
+                                """
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Push Docker Images') {
+            steps {
+                script {
+                    sh """
+                        echo ${DOCKERHUB_CREDENTIALS_PSW} | docker login -u ${DOCKERHUB_CREDENTIALS_USR} --password-stdin
+                        
+                        docker push ${DOCKERHUB_USERNAME}/ecommerce-frontend:${IMAGE_TAG}
+                        docker push ${DOCKERHUB_USERNAME}/ecommerce-frontend:latest
+                        
+                        docker push ${DOCKERHUB_USERNAME}/product-service:${IMAGE_TAG}
+                        docker push ${DOCKERHUB_USERNAME}/product-service:latest
+                        
+                        docker push ${DOCKERHUB_USERNAME}/order-service:${IMAGE_TAG}
+                        docker push ${DOCKERHUB_USERNAME}/order-service:latest
+                    """
+                }
+            }
+        }
+
+        stage('Update Kubernetes Manifests') {
+            steps {
+                script {
+                    sh """
+                        # Replace placeholder with actual DockerHub username in manifests
+                        sed -i 's/\${DOCKERHUB_USERNAME}/${DOCKERHUB_USERNAME}/g' kubernetes/product-service.yaml
+                        sed -i 's/\${DOCKERHUB_USERNAME}/${DOCKERHUB_USERNAME}/g' kubernetes/order-service.yaml
+                        sed -i 's/\${DOCKERHUB_USERNAME}/${DOCKERHUB_USERNAME}/g' kubernetes/frontend.yaml
+                        
+                        # Update image tags
+                        sed -i 's/:latest/:${IMAGE_TAG}/g' kubernetes/product-service.yaml
+                        sed -i 's/:latest/:${IMAGE_TAG}/g' kubernetes/order-service.yaml
+                        sed -i 's/:latest/:${IMAGE_TAG}/g' kubernetes/frontend.yaml
+                    """
+                }
+            }
+        }
+
+        stage('Configure kubectl') {
+            steps {
+                script {
+                    sh """
+                        aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    sh """
+                        # Apply namespace first
+                        kubectl apply -f kubernetes/namespace.yaml
+                        
+                        # Apply configs and secrets
+                        kubectl apply -f kubernetes/configmap.yaml
+                        kubectl apply -f kubernetes/secrets.yaml
+                        
+                        # Deploy services
+                        kubectl apply -f kubernetes/product-service.yaml
+                        kubectl apply -f kubernetes/order-service.yaml
+                        kubectl apply -f kubernetes/frontend.yaml
+                        
+                        # Wait for deployments
+                        kubectl rollout status deployment/product-service -n ecommerce --timeout=300s
+                        kubectl rollout status deployment/order-service -n ecommerce --timeout=300s
+                        kubectl rollout status deployment/frontend -n ecommerce --timeout=300s
+                    """
+                }
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                script {
+                    sh """
+                        echo "=== Deployment Status ==="
+                        kubectl get deployments -n ecommerce
+                        
+                        echo "=== Pods Status ==="
+                        kubectl get pods -n ecommerce
+                        
+                        echo "=== Services ==="
+                        kubectl get services -n ecommerce
+                        
+                        echo "=== Frontend LoadBalancer URL ==="
+                        kubectl get service frontend -n ecommerce -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            // Clean up Docker images to save space
+            sh '''
+                docker rmi ${DOCKERHUB_USERNAME}/ecommerce-frontend:${IMAGE_TAG} || true
+                docker rmi ${DOCKERHUB_USERNAME}/product-service:${IMAGE_TAG} || true
+                docker rmi ${DOCKERHUB_USERNAME}/order-service:${IMAGE_TAG} || true
+            '''
+        }
+        success {
+            echo 'Deployment completed successfully!'
+        }
+        failure {
+            echo 'Deployment failed. Check the logs for details.'
+        }
+    }
+}

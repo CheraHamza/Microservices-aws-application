@@ -1,0 +1,30 @@
+# Example Terraform Variables File
+# Copy this file to terraform.tfvars and fill in your values
+
+# AWS Configuration
+aws_region = "us-east-1"
+environment = "dev"
+project_name = "ecommerce"
+
+# K3s Configuration
+master_instance_type = "t3.medium"
+worker_instance_type = "t3.medium"
+worker_count = 2
+
+# SSH Key (paste your PUBLIC key content here)
+# Generate with: ssh-keygen -t rsa -b 4096 -f ~/.ssh/k3s-key
+ssh_public_key = "ssh-rsa AAAA... your-public-key-here"
+
+# K3s Token (use a secure random string)
+# Generate with: openssl rand -hex 32
+k3s_token = "your-secure-k3s-token-here"
+
+# RDS Configuration
+db_instance_class = "db.t3.micro"
+db_allocated_storage = 20
+db_name = "ecommerce_db"
+db_username = "admin"
+db_password = "YourSecurePassword123!"  # Change this!
+
+# Docker Hub
+dockerhub_username = "your-dockerhub-username"
