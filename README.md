@@ -261,29 +261,7 @@ kubectl get pods --all-namespaces
 Default credentials:
 
 - Grafana: `admin` / `admin123`
-- Jenkins: Get password from pod (see Jenkins section below)
 
-## API Endpoints
-
-### Product Service
-
-| Endpoint            | Method | Description    |
-| ------------------- | ------ | -------------- |
-| `/api/products`     | GET    | List products  |
-| `/api/products/:id` | GET    | Get product    |
-| `/api/products`     | POST   | Create product |
-| `/health`           | GET    | Health check   |
-| `/metrics`          | GET    | Prometheus     |
-
-### Order Service
-
-| Endpoint          | Method | Description  |
-| ----------------- | ------ | ------------ |
-| `/api/orders`     | GET    | List orders  |
-| `/api/orders/:id` | GET    | Get order    |
-| `/api/orders`     | POST   | Create order |
-| `/health`         | GET    | Health check |
-| `/metrics`        | GET    | Prometheus   |
 
 ## Monitoring
 
@@ -303,11 +281,7 @@ Access: **AWS Console → CloudWatch → Dashboards → `ecommerce-dashboard`**
 ## Jenkins CI/CD
 
 1. Access: `http://<MASTER_IP>:30100`
-2. Get admin password:
-   ```bash
-   kubectl exec -n jenkins $(kubectl get pod -n jenkins -o jsonpath='{.items[0].metadata.name}') -- cat /var/jenkins_home/secrets/initialAdminPassword
-   ```
-3. Create pipeline job pointing to `jenkins/Jenkinsfile`
+2. Create pipeline job pointing to `jenkins/Jenkinsfile`
 
 ## Cleanup
 
