@@ -53,14 +53,7 @@ variable "worker_instance_type" {
 variable "worker_count" {
   description = "Number of K3s worker nodes"
   type        = number
-  default     = 1
-}
-
-variable "k3s_token" {
-  description = "Token for K3s cluster authentication"
-  type        = string
-  default     = "my-super-secret-k3s-token"
-  sensitive   = true
+  default     = 2
 }
 
 variable "ssh_public_key" {
@@ -98,10 +91,4 @@ variable "db_password" {
   description = "Master password for RDS"
   type        = string
   sensitive   = true
-}
-
-# Docker Hub Variables
-variable "dockerhub_username" {
-  description = "Docker Hub username for image repository"
-  type        = string
 }

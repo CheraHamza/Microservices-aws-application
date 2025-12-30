@@ -36,14 +36,7 @@ resource "aws_instance" "k3s_master" {
     volume_type = "gp2"
   }
 
-  user_data = base64encode(templatefile("${path.module}/scripts/k3s-master-init.sh", {
-    k3s_token    = var.k3s_token
-    db_host      = aws_db_instance.main.address
-    db_port      = aws_db_instance.main.port
-    db_name      = aws_db_instance.main.db_name
-    db_user      = var.db_username
-    db_password  = var.db_password
-  }))
+  # K3s installed manually - see README.md for instructions
 
   tags = {
     Name = "${var.project_name}-k3s-master"
@@ -68,10 +61,7 @@ resource "aws_instance" "k3s_worker" {
     volume_type = "gp2"
   }
 
-  user_data = base64encode(templatefile("${path.module}/scripts/k3s-worker-init.sh", {
-    k3s_token      = var.k3s_token
-    master_ip      = aws_instance.k3s_master.private_ip
-  }))
+  # K3s installed manually - see README.md for instructions
 
   tags = {
     Name = "${var.project_name}-k3s-worker-${count.index + 1}"

@@ -113,11 +113,15 @@ output "helpful_commands" {
        export KUBECONFIG=~/.kube/config-k3s
     
     4. Access your application:
-       http://${aws_instance.k3s_master.public_ip}:30080  (Frontend - after deployment)
-       http://${aws_instance.k3s_master.public_ip}:30090  (Grafana - after deployment)
+       http://${aws_instance.k3s_master.public_ip}:30080  (Frontend)
+       http://${aws_instance.k3s_master.public_ip}:30090  (Grafana - admin/admin123)
+       http://${aws_instance.k3s_master.public_ip}:30100  (Jenkins)
     
     5. RDS Connection (from within EC2):
        mysql -h ${aws_db_instance.main.address} -P ${aws_db_instance.main.port} -u admin -p
+
+    6. CloudWatch (AWS Console):
+       https://console.aws.amazon.com/cloudwatch/home?region=${var.aws_region}
     
   EOT
 }

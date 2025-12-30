@@ -1,106 +1,100 @@
-# E-Commerce Microservices Application
+# E-Commerce Microservices on AWS
 
-A complete microservices-based e-commerce application deployed on AWS with K3s, monitoring (Prometheus/Grafana), and Infrastructure as Code (Terraform).
+A microservices-based e-commerce application deployed on AWS using K3s, with CI/CD (Jenkins), monitoring (Prometheus/Grafana), and Infrastructure as Code (Terraform).
 
-## 🏗️ Architecture
-
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                           AWS Cloud (us-east-1)                       │
-│  ┌─────────────────────────────────────────────────────────────────┐ │
-│  │                         VPC (10.0.0.0/16)                        │ │
-│  │  ┌─────────────────────────────────────────────────────────────┐│ │
-│  │  │                   K3s Cluster (3 EC2 nodes)                  ││ │
-│  │  │  ┌──────────┐  ┌────────────────┐  ┌─────────────────┐      ││ │
-│  │  │  │ Frontend │  │ Product Service│  │  Order Service  │      ││ │
-│  │  │  │ (React)  │──│   (Node.js)    │──│   (Node.js)     │      ││ │
-│  │  │  │   :80    │  │     :3001      │  │     :3002       │      ││ │
-│  │  │  └──────────┘  └────────────────┘  └─────────────────┘      ││ │
-│  │  │        │               │                   │                 ││ │
-│  │  │  ┌─────────────────────────────────────────────────────────┐││ │
-│  │  │  │     Prometheus      │      Grafana      │    Jenkins    │││ │
-│  │  │  └─────────────────────────────────────────────────────────┘││ │
-│  │  └─────────────────────────────────────────────────────────────┘│ │
-│  │                              │                                   │ │
-│  │                    ┌─────────────────┐                          │ │
-│  │                    │   RDS MySQL     │                          │ │
-│  │                    │  (db.t3.micro)  │                          │ │
-│  │                    └─────────────────┘                          │ │
-│  └─────────────────────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────────────────────┘
-```
-
-## 🛠️ Tech Stack
-
-| Component            | Technology                     |
-| -------------------- | ------------------------------ |
-| **Infrastructure**   | Terraform, AWS (EC2, VPC, RDS) |
-| **Kubernetes**       | K3s (lightweight K8s)          |
-| **Frontend**         | React 18, Nginx                |
-| **Backend**          | Node.js 18, Express            |
-| **Database**         | MySQL 8.0 (AWS RDS)            |
-| **Monitoring**       | Prometheus, Grafana            |
-| **CI/CD**            | Jenkins                        |
-| **Containerization** | Docker, Docker Hub             |
-
-## 📁 Project Structure
+## Architecture
 
 ```
-Microservices-aws-application/
-├── terraform/                    # Infrastructure as Code
-│   ├── main.tf                  # Provider configuration
-│   ├── variables.tf             # Variable definitions
-│   ├── outputs.tf               # Output values
-│   ├── vpc.tf                   # VPC, subnets, NAT Gateway
-│   ├── ec2-k3s.tf               # K3s EC2 instances & security groups
-│   ├── security-groups.tf       # RDS security groups
-│   ├── rds.tf                   # RDS MySQL database
-│   └── terraform.tfvars.example # Example variables file
+┌────────────────────────────────────────────────────────────────┐
+│                     AWS Cloud (us-east-1)                      │
+│  ┌───────────────────────────────────────────────────────────┐ │
+│  │                    VPC (10.0.0.0/16)                      │ │
+│  │                                                           │ │
+│  │   ┌─────────────────────────────────────────────────────┐ │ │
+│  │   │            K3s Cluster (3 EC2 nodes)                │ │ │
+│  │   │                                                     │ │ │
+│  │   │  ┌──────────┐ ┌───────────────┐ ┌──────────────┐    │ │ │
+│  │   │  │ Frontend │ │Product Service│ │Order Service │    │ │ │
+│  │   │  │ (React)  │ │  (Node.js)    │ │  (Node.js)   │    │ │ │
+│  │   │  └──────────┘ └───────────────┘ └──────────────┘    │ │ │
+│  │   │                                                     │ │ │
+│  │   │  ┌──────────┐ ┌──────────────┐ ┌──────────────┐     │ │ │
+│  │   │  │Prometheus│ │   Grafana    │ │   Jenkins    │     │ │ │
+│  │   │  └──────────┘ └──────────────┘ └──────────────┘     │ │ │
+│  │   └─────────────────────────────────────────────────────┘ │ │
+│  │                           │                               │ │
+│  │                  ┌────────────────┐                       │ │
+│  │                  │   RDS MySQL    │                       │ │
+│  │                  └────────────────┘                       │ │
+│  └───────────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────────┘
+```
+
+## Tech Stack
+
+| Component          | Technology                      |
+| ------------------ | ------------------------------- |
+| **Infrastructure** | Terraform, AWS (EC2, VPC, RDS)  |
+| **Kubernetes**     | K3s (lightweight K8s)           |
+| **Frontend**       | React 18, Nginx                 |
+| **Backend**        | Node.js 18, Express             |
+| **Database**       | MySQL 8.0 (AWS RDS)             |
+| **Monitoring**     | Prometheus, Grafana, CloudWatch |
+| **CI/CD**          | Jenkins                         |
+
+## Project Structure
+
+```
+├── terraform/              # AWS Infrastructure
+│   ├── main.tf            # Provider config
+│   ├── vpc.tf             # VPC & subnets
+│   ├── ec2-k3s.tf         # EC2 instances
+│   ├── rds.tf             # MySQL database
+│   ├── cloudwatch.tf      # CloudWatch dashboard
+│   └── variables.tf       # Variables
 ├── app/
-│   ├── frontend/                # React frontend application
-│   ├── product-service/         # Node.js product microservice
-│   └── order-service/           # Node.js order microservice
+│   ├── frontend/          # React app
+│   ├── product-service/   # Product API
+│   └── order-service/     # Order API
 ├── kubernetes/
-│   ├── namespace.yaml           # Kubernetes namespace
-│   ├── configmap.yaml           # Application configuration
-│   ├── secrets.yaml             # Database credentials
-│   ├── product-service.yaml     # Product service deployment
-│   ├── order-service.yaml       # Order service deployment
-│   ├── frontend.yaml            # Frontend deployment
-│   ├── jenkins/                 # Jenkins deployment
-│   └── monitoring/              # Prometheus & Grafana
+│   ├── frontend.yaml
+│   ├── product-service.yaml
+│   ├── order-service.yaml
+│   ├── secrets.yaml
+│   ├── configmap.yaml
+│   ├── monitoring/        # Prometheus & Grafana
+│   └── jenkins/           # Jenkins CI/CD
 ├── jenkins/
-│   └── Jenkinsfile              # CI/CD pipeline definition
-├── docker-compose.yml           # Local development
-└── README.md
+│   └── Jenkinsfile        # Pipeline definition
+├── monitoring/
+│   └── prometheus-local.yml
+└── docker-compose.yml     # Local development
 ```
 
-## 🚀 Deployment Guide
+## Quick Start
 
 ### Prerequisites
 
-- AWS Account (or AWS Academy Learner Lab)
-- AWS CLI configured
+- AWS Account (AWS Academy Learner Lab supported)
 - Terraform >= 1.0.0
 - Docker & Docker Hub account
 - SSH key pair
 
-### Step 1: Clone and Configure
+### Step 1: Configure Terraform
 
 ```bash
 git clone https://github.com/CheraHamza/Microservices-aws-application.git
-cd Microservices-aws-application
+cd Microservices-aws-application/terraform
 
-# Generate SSH key
+# Generate SSH key (if needed)
 ssh-keygen -t rsa -b 4096 -f ~/.ssh/k3s-key
 
-# Configure Terraform variables
-cd terraform
+# Configure variables
 cp terraform.tfvars.example terraform.tfvars
 # Edit terraform.tfvars with your values
 ```
 
-### Step 2: Deploy AWS Infrastructure
+### Step 2: Deploy Infrastructure
 
 ```bash
 cd terraform
@@ -258,51 +252,64 @@ kubectl get pods --all-namespaces
 
 ### Step 9: Access the Application
 
-| Service      | URL                                                |
-| ------------ | -------------------------------------------------- |
-| **Frontend** | http://MASTER_IP                             |
-| **Grafana**  | http://MASTER_IP:NodePort (admin/admin123) |
-| **Jenkins**  | http://MASTER_IP:NodePort                          |
+| Service      | URL                    |
+| ------------ | ---------------------- |
+| **Frontend** | http://MASTER_IP:30080 |
+| **Grafana**  | http://MASTER_IP:30090 |
+| **Jenkins**  | http://MASTER_IP:30100 |
 
-Get NodePorts:
+Default credentials:
 
-```bash
-kubectl get svc --all-namespaces
-```
+- Grafana: `admin` / `admin123`
+- Jenkins: Get password from pod (see Jenkins section below)
 
-## 🔧 API Endpoints
+## API Endpoints
 
-### Product Service (Port 3001)
+### Product Service
 
-| Endpoint            | Method | Description        |
-| ------------------- | ------ | ------------------ |
-| `/api/products`     | GET    | List all products  |
-| `/api/products/:id` | GET    | Get single product |
-| `/api/products`     | POST   | Create product     |
-| `/health`           | GET    | Health check       |
-| `/metrics`          | GET    | Prometheus metrics |
+| Endpoint            | Method | Description    |
+| ------------------- | ------ | -------------- |
+| `/api/products`     | GET    | List products  |
+| `/api/products/:id` | GET    | Get product    |
+| `/api/products`     | POST   | Create product |
+| `/health`           | GET    | Health check   |
+| `/metrics`          | GET    | Prometheus     |
 
-### Order Service (Port 3002)
+### Order Service
 
-| Endpoint          | Method | Description        |
-| ----------------- | ------ | ------------------ |
-| `/api/orders`     | GET    | List all orders    |
-| `/api/orders/:id` | GET    | Get single order   |
-| `/api/orders`     | POST   | Create order       |
-| `/health`         | GET    | Health check       |
-| `/metrics`        | GET    | Prometheus metrics |
+| Endpoint          | Method | Description  |
+| ----------------- | ------ | ------------ |
+| `/api/orders`     | GET    | List orders  |
+| `/api/orders/:id` | GET    | Get order    |
+| `/api/orders`     | POST   | Create order |
+| `/health`         | GET    | Health check |
+| `/metrics`        | GET    | Prometheus   |
 
-## 📊 Monitoring Setup
+## Monitoring
 
-### Grafana Configuration
+### Grafana
 
-1. Go to **Connections** → **Data Sources** → **Add data source**
-2. Select **Prometheus**
-3. URL: `http://prometheus:9090`
-4. Click **Save & Test**
-5. Import dashboard ID: **3662** for Prometheus overview
+1. Access: `http://<MASTER_IP>:30090`
+2. Login: `admin` / `admin123`
+3. Add data source: **Prometheus** → URL: `http://prometheus:9090`
+4. Import dashboard ID: **3662**
 
-## 🧹 Cleanup
+### CloudWatch
+
+Terraform creates a CloudWatch dashboard with EC2 and RDS metrics.
+
+Access: **AWS Console → CloudWatch → Dashboards → `ecommerce-dashboard`**
+
+## Jenkins CI/CD
+
+1. Access: `http://<MASTER_IP>:30100`
+2. Get admin password:
+   ```bash
+   kubectl exec -n jenkins $(kubectl get pod -n jenkins -o jsonpath='{.items[0].metadata.name}') -- cat /var/jenkins_home/secrets/initialAdminPassword
+   ```
+3. Create pipeline job pointing to `jenkins/Jenkinsfile`
+
+## Cleanup
 
 ```bash
 # Delete Kubernetes resources
@@ -315,10 +322,10 @@ cd terraform
 terraform destroy
 ```
 
-## ⚠️ AWS Learner Lab Notes
+## AWS Learner Lab Notes
 
-- **EKS not available**: IAM restrictions prevent EKS usage. K3s on EC2 is the alternative.
-- **Session timeout**: Labs expire after 4 hours of inactivity
-- **Region**: Use us-east-1 for compatibility
-- **Costs**: Uses t3.medium instances to minimize costs
-- **RDS persistence**: Database persists across sessions
+- K3s is used instead of EKS (IAM restrictions)
+- Session timeout: 4 hours of inactivity
+- Region: us-east-1
+- RDS data persists across sessions
+- After lab restart: run `terraform refresh` to get new IPs

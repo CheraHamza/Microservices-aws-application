@@ -92,9 +92,6 @@ spec:
               mountPath: /var/jenkins_home
             - name: docker-sock
               mountPath: /var/run/docker.sock
-          env:
-            - name: JAVA_OPTS
-              value: "-Djenkins.install.runSetupWizard=false"
           livenessProbe:
             httpGet:
               path: /login
@@ -125,13 +122,14 @@ metadata:
   name: jenkins
   namespace: jenkins
 spec:
-  type: LoadBalancer
+  type: NodePort
   selector:
     app: jenkins
   ports:
     - name: http
       port: 8080
       targetPort: 8080
+      nodePort: 30100
     - name: jnlp
       port: 50000
       targetPort: 50000
