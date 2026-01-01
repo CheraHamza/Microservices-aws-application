@@ -5,29 +5,43 @@ A microservices-based e-commerce application deployed on AWS using K3s, with CI/
 ## Architecture
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│                     AWS Cloud (us-east-1)                      │
-│  ┌───────────────────────────────────────────────────────────┐ │
-│  │                    VPC (10.0.0.0/16)                      │ │
-│  │                                                           │ │
-│  │   ┌─────────────────────────────────────────────────────┐ │ │
-│  │   │            K3s Cluster (3 EC2 nodes)                │ │ │
-│  │   │                                                     │ │ │
-│  │   │  ┌──────────┐ ┌───────────────┐ ┌──────────────┐    │ │ │
-│  │   │  │ Frontend │ │Product Service│ │Order Service │    │ │ │
-│  │   │  │ (React)  │ │  (Node.js)    │ │  (Node.js)   │    │ │ │
-│  │   │  └──────────┘ └───────────────┘ └──────────────┘    │ │ │
-│  │   │                                                     │ │ │
-│  │   │  ┌──────────┐ ┌──────────────┐ ┌──────────────┐     │ │ │
-│  │   │  │Prometheus│ │   Grafana    │ │   Jenkins    │     │ │ │
-│  │   │  └──────────┘ └──────────────┘ └──────────────┘     │ │ │
-│  │   └─────────────────────────────────────────────────────┘ │ │
-│  │                           │                               │ │
-│  │                  ┌────────────────┐                       │ │
-│  │                  │   RDS MySQL    │                       │ │
-│  │                  └────────────────┘                       │ │
-│  └───────────────────────────────────────────────────────────┘ │
-└────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│                        AWS Cloud (us-east-1)                       │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │                      VPC (10.0.0.0/16)                       │  │
+│  │                                                              │  │
+│  │   ┌────────────────────────────────────────────────────┐     │  │
+│  │   │           K3s Cluster (3 EC2 Nodes)                │     │  │
+│  │   │                                                    │     │  │
+│  │   │   ┌──────────────────────────────────────────┐     │     │  │
+│  │   │   │         Application Layer                │     │     │  │
+│  │   │   │  ┌────────┐ ┌─────────┐ ┌─────────┐      │     │     │  │
+│  │   │   │  │Frontend│ │Product  │ │ Order   │      │     │     │  │
+│  │   │   │  │(React) │ │Service  │ │ Service │      │     │     │  │
+│  │   │   │  │        │ │(Node.js)│ │(Node.js)│      │     │     │  │
+│  │   │   │  └────────┘ └─────────┘ └─────────┘      │     │     │  │
+│  │   │   └──────────────────────────────────────────┘     │     │  │
+│  │   │                                                    │     │  │
+│  │   │   ┌──────────────────────────────────────────┐     │     │  │
+│  │   │   │         DevOps Layer                     │     │     │  │
+│  │   │   │  ┌──────────┐ ┌───────┐ ┌───────┐        │     │     │  │
+│  │   │   │  │Prometheus│ │Grafana│ │Jenkins│        │     │     │  │
+│  │   │   │  │(metrics) │ └───────┘ └───────┘        │     │     │  │
+│  │   │   │  └──────────┘                            │     │     │  │
+│  │   │   └──────────────────────────────────────────┘     │     │  │
+│  │   └────────────────────────────────────────────────────┘     │  │
+│  │                            │                                 │  │
+│  │                   ┌────────────────┐                         │  │
+│  │                   │   RDS MySQL    │                         │  │
+│  │                   │   (db.t3.micro)│                         │  │
+│  │                   └────────────────┘                         │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                    │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │                    CloudWatch Dashboard                      │  │
+│  │              (EC2 & RDS Metrics Visualization)               │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Tech Stack
@@ -65,10 +79,8 @@ A microservices-based e-commerce application deployed on AWS using K3s, with CI/
 │   ├── monitoring/        # Prometheus & Grafana
 │   └── jenkins/           # Jenkins CI/CD
 ├── jenkins/
-│   └── Jenkinsfile        # Pipeline definition
-├── monitoring/
-│   └── prometheus-local.yml
-└── docker-compose.yml     # Local development
+    └── Jenkinsfile        # Pipeline definition
+
 ```
 
 ## Quick Start
@@ -252,16 +264,15 @@ kubectl get pods --all-namespaces
 
 ### Step 9: Access the Application
 
-| Service      | URL                    |
-| ------------ | ---------------------- |
-| **Frontend** | http://MASTER_IP:30080 |
-| **Grafana**  | http://MASTER_IP:30090 |
-| **Jenkins**  | http://MASTER_IP:30100 |
+| Service      | URL                       |
+| ------------ | ----------------------    |
+| **Frontend** | http://MASTER_IP          |
+| **Grafana**  | http://MASTER_IP:NodePort |
+| **Jenkins**  | http://MASTER_IP:NodePort |
 
 Default credentials:
 
 - Grafana: `admin` / `admin123`
-
 
 ## Monitoring
 
@@ -280,8 +291,74 @@ Access: **AWS Console → CloudWatch → Dashboards → `ecommerce-dashboard`**
 
 ## Jenkins CI/CD
 
-1. Access: `http://<MASTER_IP>:30100`
-2. Create pipeline job pointing to `jenkins/Jenkinsfile`
+The pipeline performs real CI/CD: builds Docker images, pushes to Docker Hub, and deploys to Kubernetes.
+
+### Setup Jenkins Tools
+
+SSH into master and run:
+
+```bash
+# Install Docker on host
+sudo yum install -y docker
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo chmod 666 /var/run/docker.sock
+
+# Get Jenkins pod
+JENKINS_POD=$(kubectl get pod -n jenkins -l app=jenkins -o jsonpath="{.items[0].metadata.name}")
+
+# Install Docker CLI in Jenkins (static binary, no root needed)
+kubectl exec -it $JENKINS_POD -n jenkins -- bash -c "
+cd /tmp &&
+curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-24.0.7.tgz -o docker.tgz &&
+tar xzvf docker.tgz &&
+mkdir -p ~/bin &&
+cp docker/docker ~/bin/ &&
+rm -rf docker docker.tgz
+"
+
+# Install kubectl in Jenkins
+kubectl exec -it $JENKINS_POD -n jenkins -- bash -c "
+cd /tmp &&
+curl -LO https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl &&
+chmod +x kubectl &&
+mkdir -p ~/bin &&
+mv kubectl ~/bin/
+"
+
+# Configure kubectl
+kubectl exec -it $JENKINS_POD -n jenkins -- bash -c 'mkdir -p ~/.kube && printf "apiVersion: v1\nkind: Config\nclusters:\n- cluster:\n    certificate-authority: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt\n    server: https://kubernetes.default.svc\n  name: default\ncontexts:\n- context:\n    cluster: default\n    user: default\n  name: default\ncurrent-context: default\nusers:\n- name: default\n  user:\n    tokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token\n" > ~/.kube/config'
+
+# Verify
+kubectl exec -it $JENKINS_POD -n jenkins -- bash -c 'export PATH=$HOME/bin:$PATH && docker --version && kubectl get nodes'
+```
+
+### Configure Jenkins
+
+1. Access: `http://<MASTER_IP>:NodePort`
+2. Add Docker Hub credentials:
+   - Manage Jenkins → Credentials → Add Credentials
+   - Kind: Username with password
+   - ID: `dockerhub-credentials`
+   - Username: Your Docker Hub username
+   - Password: Your Docker Hub token
+3. Create pipeline:
+   - New Item → Pipeline → `ecommerce-cicd`
+   - Pipeline script from SCM → Git
+   - Repository: `https://github.com/CheraHamza/Microservices-aws-application.git`
+   - Script Path: `jenkins/Jenkinsfile`
+4. Click **Build Now**
+
+### Pipeline Stages
+
+| Stage                | Action                     |
+| -------------------- | -------------------------- |
+| Checkout             | Clone repository           |
+| Validate             | Check Dockerfiles exist    |
+| Build Docker Images  | Build 3 images in parallel |
+| Push to Docker Hub   | Push with build number tag |
+| Deploy to Kubernetes | Rolling update deployments |
+| Verify Deployment    | Show pod/service status    |
 
 ## Cleanup
 
